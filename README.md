@@ -22,7 +22,7 @@ Before you start, make sure you have the following prerequisites installed on yo
 Clone this repository to your local machine:
 
 ```
-git clone https://github.com/yourusername/property-application.git
+git clone https://github.com/umrasghar/listifypro-apis.git
 ```
 
 Install the project dependencies:
@@ -71,7 +71,7 @@ You can use `curl` commands or API clients like Postman to add sample data to th
 Start the application:
 
 ```
-npm start
+npm run server
 ```
 
 The application will run on `http://localhost:5000`.
