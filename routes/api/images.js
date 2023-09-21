@@ -1,21 +1,60 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 const Image = require('../../models/Image');
+const Property = require('../../models/Property');
+const checkPropertyImageExists = require('../../middleware/checkPropertyImageExists');
+const checkProperty = require('../../middleware/checkProperty');
+
+
+const destinationDirectory = 'public/images/uploads/';
+
+const storage = multer.diskStorage({
+    
+    destination: (req, file, cb) => {
+        cb(null, destinationDirectory);
+    }
+    ,
+    filename: (req, file, cb) => {
+        const fileName = file.originalname.toLowerCase().split(' ').join('-');
+        cb(null, uuidv4() + '-' + fileName)
+    }
+});
+
+const upload = multer({ storage });
+
+// POST create a new image for a property -----------------------------  OLD CODE
+// router.post('/', async (req, res) => {
+//   const { propertyID, imageURL } = req.body;
+//   try {
+//     const image = new Image({ propertyID, imageURL });
+//     const newImage = await image.save();
+//     res.status(201).json(newImage);
+//   } catch (err) {
+//     res.status(400).json({ message: err.message });
+//   }
+// });
+// ---------------------------------------------------------------- Old Code
 
 // POST create a new image for a property
-router.post('/', async (req, res) => {
-  const { propertyID, imageURL } = req.body;
+router.post('/', checkPropertyImageExists, upload.single('image'), async (req, res) => {
+  const { propertyID } = req.body;
   try {
-    const image = new Image({ propertyID, imageURL });
-    const newImage = await image.save();
-    res.status(201).json(newImage);
+      const imageName = req.file.filename;
+  
+      const image = new Image({ propertyID, imageName });
+      const newImage = await image.save();
+      res.status(201).json(newImage);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+      res.status(400).json({ message: err.message });
   }
 });
 
-// GET all images
-router.get('/', async (req, res) => {
+// GET all images -----------------------------  OLD CODE
+router.get('/all', async (req, res) => {
   try {
     const images = await Image.find();
     res.json(images);
@@ -23,46 +62,149 @@ router.get('/', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// ---------------------------------------------------------------- Old Code
 
-// GET an image by ID
-router.get('/:id', getImage, (req, res) => {
-  res.json(res.image);
+// GET an image againt ?propertyID=propertyID or ?imageName=imageName or ?id=id query paramenters
+router.get('/', async (req, res) => {
+    const { propertyID, imageName, id } = req.query;
+    try {
+      if ((propertyID==undefined) && (imageName==undefined)  && (id==undefined)) {
+        
+        return res.status(400).json({ message: 'Must sepcify the propertyID or imageName or id' });
+    }
+        
+        const query = {};
+        if (propertyID) {
+          query.propertyID = propertyID;
+        }
+        if (imageName) {
+          query.imageName = imageName;
+        }
+        if (id) {
+          query._id = id;
+        }
+        const image = await Image.findOne(query);
+        
+        
+        if (!image) {
+            return res.status(404).json({ message: 'Image not found' });
+        }
+
+        const imageFileName =  image.imageName;
+        const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
+        console.log(imagePath);
+   
+        if (fs.existsSync(imagePath)) {
+            
+            const imageStream = fs.createReadStream(imagePath);
+            // imageStream.pipe(res);
+
+            res.status(200).json({
+              _id: image._id,
+              propertyID: image.propertyID,
+              image: imageStream,
+            });
+          } else {
+            res.status(404).json({ message: 'Image not found' });
+          }
+    } catch (err) {
+        console.log(err);
+        res.status(500).json({ message: err.message });
+    }
 });
 
-// PUT update an image by ID
-router.put('/:id', getImage, async (req, res) => {
-  try {
-    const updatedImage = await res.image.set(req.body);
-    await updatedImage.save();
-    res.json(updatedImage);
+
+// PUT update an image by ID --------------------------------  OLD CODE
+// router.put('/:id', getImage, async (req, res) => {
+//   try {
+//     const updatedImage = await res.image.set(req.body);
+//     await updatedImage.save();
+//     res.json(updatedImage);
+//   } catch (err) {
+//     res.status(400).json({ message: err.message });
+//   }
+// });
+//--------------------------------------------------------------   OLD CODE
+
+//Update Image 
+router.put('/', checkProperty, upload.single('image'), async (req, res) => {
+  const { propertyID, id } = req.query;
+    try {       
+        const query = {};
+        if (propertyID) {
+          query.propertyID = propertyID;
+        }
+        if (id) {
+          query._id = id;
+        }
+        const newImageName = req.file.filename;
+      // Find the existing image by ID
+      const existingImage = await Image.findOne(query);
+
+      if (!existingImage) {
+          return res.status(404).json({ message: 'Image not found' });
+      }
+
+      // Delete the old image file from the file system
+      const oldImageFileName = existingImage.imageName;
+      const oldImagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', oldImageFileName);
+
+      if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+      }
+
+      // Update the image details in the database
+      existingImage.propertyID = propertyID;
+      existingImage.imageName = newImageName;
+      const updatedImage = await existingImage.save();
+
+      res.status(200).json(updatedImage);
   } catch (err) {
-    res.status(400).json({ message: err.message });
+      console.log(err);
+      res.status(500).json({ message: err.message });
   }
 });
 
-// DELETE an image by ID
-router.delete('/:id', getImage, async (req, res) => {
+// DELETE an image againt ?propertyID=propertyID or ?id=id query paramenters
+router.delete('/', async (req, res) => {
+  const { propertyID, id } = req.query;
   try {
-    await res.image.remove();
-    res.json({ message: 'Image deleted' });
+    if ((propertyID==undefined) && (id==undefined)) {
+      return res.status(400).json({ message: 'Must sepcify the propertyID or id' });
+    }
+
+    const query = {};
+    if (propertyID) {
+      query.propertyID = propertyID;
+    }
+    if (id) {
+      query._id = id;
+    }
+        
+    // Find image by property ID
+    const image = await Image.findOne(query);
+    if (!image) {
+      return res.status(404).json({ message: 'Image not found' });
+    }
+
+    // Delete image from storage
+    const imageFileName = image.imageName;
+    const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
+
+    if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+    }
+
+    // Delete image from database
+    await image.deleteOne({ _id: image._id });
+
+    res.status(200).json({ message: 'Image deleted' });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 });
 
-// Middleware to fetch an image by ID
-async function getImage(req, res, next) {
-  let image;
-  try {
-    image = await Image.findById(req.params.id);
-    if (image == null) {
-      return res.status(404).json({ message: 'Image not found' });
-    }
-  } catch (err) {
-    return res.status(500).json({ message: err.message });
-  }
-  res.image = image;
-  next();
-}
+
 
 module.exports = router;

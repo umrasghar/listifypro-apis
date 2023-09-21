@@ -6,7 +6,7 @@ const imageSchema = new mongoose.Schema({
     ref: 'Property',
     required: true,
   },
-  imageURL: String, // You can use URL or store binary data here
+  imageName: String, // You can use URL or store binary data here
 });
 
 module.exports = mongoose.model('Image', imageSchema);

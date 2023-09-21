@@ -12,6 +12,10 @@ This is a simple Node.js/Express/MongoDB application for managing property listi
 - [Contributing](#contributing)
 - [License](#license)
 
+## ✨ New Update
+
+- Images APIs updates : Now It accepts the image and store it instead of URL 🥳
+
 ## Getting Started
 
 Before you start, make sure you have the following prerequisites installed on your machine:
@@ -85,4 +89,3 @@ Contributions are welcome! Feel free to open issues or submit pull requests.
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 ```
 
-This README.md template provides information on getting started, project structure, API endpoints, sample data, running the application, contributing, and licensing. Customize it to fit your specific project requirements and provide detailed information about your application.
