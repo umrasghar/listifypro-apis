@@ -16,8 +16,7 @@ const storage = multer.diskStorage({
     
     destination: (req, file, cb) => {
         cb(null, destinationDirectory);
-    }
-    ,
+    },
     filename: (req, file, cb) => {
         const fileName = file.originalname.toLowerCase().split(' ').join('-');
         cb(null, uuidv4() + '-' + fileName)
@@ -38,13 +37,28 @@ const upload = multer({ storage });
 //   }
 // });
 // ---------------------------------------------------------------- Old Code
+// function logRequest(req, res, next) {
+//   console.log("/////////////////////////////////////////////////////");
+//   console.log("/////////////////////////////////////////////////////");
+//   console.log("/////////////////////////////////////////////////////");
+//   console.log("Request Object:", req);
+//   console.log("/////////////////////////////////////////////////////");
+//   console.log("/////////////////////////////////////////////////////");
+//   console.log("/////////////////////////////////////////////////////");
+//   next(); // Call the next middleware in the chain
+// }
 
 // POST create a new image for a property
-router.post('/', checkPropertyImageExists, upload.single('image'), async (req, res) => {
+router.post('/', checkPropertyImageExists, async (req, res) => {
+  console.log(req);
+  console.log(req.body);
+  const { originalname, buffer } = req.file;
   const { propertyID } = req.body;
+  const fileName = uuidv4() + '-' + originalname.toLowerCase().split(' ').join('-');
   try {
-      const imageName = req.file.filename;
-  
+    fs.writeFileSync( destinationDirectory + fileName, buffer);
+      const imageName = fileName;
+
       const image = new Image({ propertyID, imageName });
       const newImage = await image.save();
       res.status(201).json(newImage);
@@ -91,9 +105,9 @@ router.get('/', async (req, res) => {
         }
 
         const imageFileName =  image.imageName;
-        const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
-        console.log(imagePath);
-   
+       const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
+       console.log(imagePath);
+
         if (fs.existsSync(imagePath)) {
             
             const imageStream = fs.createReadStream(imagePath);
