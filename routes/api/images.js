@@ -81,46 +81,49 @@ router.get('/all', async (req, res) => {
 // GET an image againt ?propertyID=propertyID or ?imageName=imageName or ?id=id query paramenters
 router.get('/', async (req, res) => {
     const { propertyID, imageName, id } = req.query;
+
     try {
       if ((propertyID==undefined) && (imageName==undefined)  && (id==undefined)) {
-        
         return res.status(400).json({ message: 'Must sepcify the propertyID or imageName or id' });
-    }
+      }
         
-        const query = {};
-        if (propertyID) {
-          query.propertyID = propertyID;
-        }
-        if (imageName) {
-          query.imageName = imageName;
-        }
-        if (id) {
-          query._id = id;
-        }
-        const image = await Image.findOne(query);
-        
-        
-        if (!image) {
-            return res.status(404).json({ message: 'Image not found' });
-        }
+      const query = {};
 
-        const imageFileName =  image.imageName;
-       const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
-       console.log(imagePath);
+      if (propertyID) {
+        query.propertyID = propertyID;
+      }
+      if (imageName) {
+        query.imageName = imageName;
+      }
+      if (id) {
+        query._id = id;
+      }
 
-        if (fs.existsSync(imagePath)) {
-            
-            const imageStream = fs.createReadStream(imagePath);
-            // imageStream.pipe(res);
+      const image = await Image.findOne(query);
+      
+      if (!image) {
+          return res.status(404).json({ message: 'Image not found' });
+      }
 
-            res.status(200).json({
-              _id: image._id,
-              propertyID: image.propertyID,
-              image: imageStream,
-            });
-          } else {
-            res.status(404).json({ message: 'Image not found' });
-          }
+      const imageFileName =  image.imageName;
+      const imagePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
+      console.log(imagePath);
+
+      if (fs.existsSync(imagePath)) {
+          
+        const imageStream = fs.createReadStream(imagePath);
+        const base64Image = imageStream.toString('base64')
+        const fileExtension = imageFileName.split('.').pop();
+
+        res.status(200).json({
+          _id: image._id,
+          propertyID: image.propertyID,
+          type: fileExtension,
+          image: Buffer.from(fs.readFileSync(imagePath)).toString("base64"),
+        });
+        } else {
+          res.status(404).json({ message: 'Image not found' });
+        }
     } catch (err) {
         console.log(err);
         res.status(500).json({ message: err.message });
@@ -141,8 +144,33 @@ router.get('/', async (req, res) => {
 //--------------------------------------------------------------   OLD CODE
 
 //Update Image 
-router.put('/', checkProperty, upload.single('image'), async (req, res) => {
+router.put('/',     upload.single('image'), async (req, res) => {
   const { propertyID, id } = req.query;
+
+  try {
+    const imageFileName = req.file.filename;
+    const imageFileNamePath = path.join(__dirname, '..', '..', 'public', 'images', 'uploads', imageFileName);
+    if (propertyID==undefined && (id==undefined)) {
+   
+      if (fs.existsSync(imageFileName)) {
+          fs.unlinkSync(imageFileName);
+      }
+      return res.status(400).json({ message: 'Must sepcify the valid propertyID or id' });
+    }
+    const existingProperty = await Property.findOne({ _id: propertyID });
+    console.log(existingProperty);
+    if (!existingProperty) {
+      if (fs.existsSync(imageFileName)) {
+        fs.unlinkSync(imageFileName);
+    }
+      return res.status(400).json({ message: 'Property does not exist' });
+    }
+
+  } catch (error) {
+      console.log(error);
+    return res.status(500).json({ message: 'Internal server error' });
+  }
+
     try {       
         const query = {};
         if (propertyID) {
